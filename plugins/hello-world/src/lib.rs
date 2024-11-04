@@ -1,7 +1,8 @@
 //! Hexerator hello world example plugin
 
 use hexerator_plugin_api::{
-    HexeratorHandle, MethodParam, MethodResult, Plugin, PluginMethod, Value, ValueTy,
+    HexeratorHandle, MethodParam, MethodResult, Plugin, PluginMethod, PluginSourceProviderParams,
+    Value, ValueTy,
 };
 
 struct HelloPlugin;
@@ -83,6 +84,25 @@ impl Plugin for HelloPlugin {
             _ => Err(format!("Unknown method: {name}")),
         }
     }
+
+    fn source_provider_params(&self) -> Option<PluginSourceProviderParams> {
+        Some(PluginSourceProviderParams {
+            human_name: "hello_world",
+            can_save: false,
+            can_write: false,
+            auto_reload_type: hexerator_plugin_api::AutoReloadType::OneShot,
+        })
+    }
+    fn read(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+        println!("read");
+        let len = 200u8;
+        buf.clear();
+        (0..len).for_each(|i| buf.push(i));
+        Ok(len as usize)
+    }
+    // fn write(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+    //     unimplemented!("This plugin does not impl a source provider")
+    // }
 }
 
 #[no_mangle]

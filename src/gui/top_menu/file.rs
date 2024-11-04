@@ -20,6 +20,19 @@ pub fn ui(ui: &mut egui::Ui, gui: &mut Gui, app: &mut App, font_size: u16, line_
         gui.win.open_process.open.toggle();
         ui.close_menu();
     }
+
+    ui.menu_button("Open with plugin", |ui| {
+        app.plugins.iter_mut().for_each(|p| {
+            if let Some(params) = p.plugin.source_provider_params() {
+                if ui.button(params.human_name).clicked() {
+                    _ = p.plugin.read(&mut app.data);
+                    //
+                    ui.close_menu();
+                }
+            }
+        });
+    });
+
     let mut load = None;
     if ui
         .add_enabled(

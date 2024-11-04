@@ -12,6 +12,17 @@ pub struct PluginContainer {
     pub _lib: libloading::Library,
 }
 
+impl std::fmt::Debug for PluginContainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PluginContainer")
+            .field("path", &self.path)
+            .field("plugin", &"REDACTED")
+            .field("methods", &"REDACTED")
+            .field("_lib", &"REDACTED")
+            .finish()
+    }
+}
+
 impl HexeratorHandle for App {
     fn debug_log(&self, msg: &str) {
         gamedebug_core::per!("{msg}");

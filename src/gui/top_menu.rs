@@ -43,7 +43,7 @@ pub fn top_menu(
             Layout::right_to_left(egui::Align::Center),
             |ui| match &app.source {
                 Some(src) => {
-                    match src.provider {
+                    match &src.provider {
                         SourceProvider::File(_) => {
                             match &app.src_args.file {
                                 Some(file) => {
@@ -115,6 +115,9 @@ pub fn top_menu(
                         #[cfg(windows)]
                         SourceProvider::WinProc { handle, .. } => {
                             ui.label(format!("Windows process: {:p}", handle));
+                        }
+                        SourceProvider::Plugin(_p) => {
+                            ui.label("Plugin input");
                         }
                     }
                     if src.attr.stream {

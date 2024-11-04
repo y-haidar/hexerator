@@ -180,6 +180,18 @@ impl App {
                 } => unsafe {
                     crate::windows::read_proc_memory(*handle, &mut self.data, *start, *size)?;
                 },
+                SourceProvider::Plugin(pname) => {
+                    println!("update");
+                    let p = self
+                        .plugins
+                        .iter_mut()
+                        .find(|p| match p.plugin.source_provider_params() {
+                            Some(params) => params.human_name == *pname,
+                            None => false,
+                        })
+                        .context("Tried to reload with a plugin that is not a source provider")?;
+                    _ = p.plugin.read(&mut self.data);
+                }
             },
             None => bail!("No file to reload"),
         }
@@ -210,6 +222,24 @@ impl App {
                         self.edit_state.dirty_region = None;
                     }
                     return Ok(());
+                }
+                SourceProvider::Plugin(pname) => {
+                    let p = self
+                        .plugins
+                        .iter_mut()
+                        .find(|p| match p.plugin.source_provider_params() {
+                            Some(params) => params.human_name == *pname,
+                            None => false,
+                        })
+                        .context("Tried to save with a plugin that is not a source provider")?;
+                    if let Some(params) = p.plugin.source_provider_params() {
+                        if !params.can_save {
+                            bail!("Plugin does not support save");
+                        }
+                    } else {
+                        bail!("Plugin is not a source provider");
+                    };
+                    todo!("save not yet implemented")
                 }
             },
             None => bail!("No surce opened, nothing to save"),
@@ -690,6 +720,7 @@ impl App {
             SourceProvider::Stdin(_) => anyhow::bail!("Not implemented"),
             #[cfg(windows)]
             SourceProvider::WinProc { .. } => anyhow::bail!("Not implemented"),
+            SourceProvider::Plugin(_) => anyhow::bail!("Not implemented"),
         }
     }
     /// Iterator over the views in the current layout

@@ -13,10 +13,12 @@ pub enum SourceProvider {
         start: usize,
         size: usize,
     },
+    Plugin(&'static str),
+    // Plugin(Arc<RwLock<PluginContainer>>),
 }
 
 /// FIXME: Prove this is actually safe
-#[cfg(windows)]
+// #[cfg(windows)]
 unsafe impl Send for SourceProvider {}
 
 #[derive(Debug)]
@@ -76,6 +78,7 @@ impl Clone for SourceProvider {
                 start: *start,
                 size: *size,
             },
+            Self::Plugin(pname) => Self::Plugin(*pname),
         }
     }
 }
@@ -89,6 +92,9 @@ impl Read for SourceProvider {
             SourceProvider::WinProc { .. } => {
                 gamedebug_core::per!("Todo: Read unimplemented");
                 Ok(0)
+            }
+            SourceProvider::Plugin(_) => {
+                unreachable!("Not like this");
             }
         }
     }
