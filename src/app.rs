@@ -164,35 +164,37 @@ impl App {
     }
     pub fn reload(&mut self) -> anyhow::Result<()> {
         match &mut self.source {
-            Some(src) => match &mut src.provider {
-                SourceProvider::File(file) => {
-                    self.data = read_contents(&self.src_args, file)?;
-                    self.edit_state.dirty_region = None;
-                }
-                SourceProvider::Stdin(_) => {
-                    bail!("Can't reload streaming sources like standard input")
-                }
-                #[cfg(windows)]
-                SourceProvider::WinProc {
-                    handle,
-                    start,
-                    size,
-                } => unsafe {
-                    crate::windows::read_proc_memory(*handle, &mut self.data, *start, *size)?;
-                },
-                SourceProvider::Plugin(pname) => {
-                    println!("update");
-                    let p = self
+            Some(src) => {
+                match &mut src.provider {
+                    SourceProvider::File(file) => {
+                        self.data = read_contents(&self.src_args, file)?;
+                        self.edit_state.dirty_region = None;
+                    }
+                    SourceProvider::Stdin(_) => {
+                        bail!("Can't reload streaming sources like standard input")
+                    }
+                    #[cfg(windows)]
+                    SourceProvider::WinProc {
+                        handle,
+                        start,
+                        size,
+                    } => unsafe {
+                        crate::windows::read_proc_memory(*handle, &mut self.data, *start, *size)?;
+                    },
+                    SourceProvider::Plugin(p) => {
+                        let pname = p.read().unwrap().source_provider_params().unwrap().human_name;
+                        let pc = self
                         .plugins
-                        .iter_mut()
-                        .find(|p| match p.plugin.source_provider_params() {
-                            Some(params) => params.human_name == *pname,
-                            None => false,
-                        })
+                        .iter()
+                        .find(|p| matches!(&p.sp_params, Some(params) if params.human_name == pname))
                         .context("Tried to reload with a plugin that is not a source provider")?;
-                    _ = p.plugin.read(&mut self.data);
+                        if matches!(&pc.sp_params, Some(params) if params.is_stream) {
+                            bail!("Cannot reload stream")
+                        }
+                        _ = p.write().unwrap().sp_read(&mut self.data);
+                    }
                 }
-            },
+            }
             None => bail!("No file to reload"),
         }
         self.just_reloaded = true;
@@ -223,22 +225,22 @@ impl App {
                     }
                     return Ok(());
                 }
-                SourceProvider::Plugin(pname) => {
-                    let p = self
-                        .plugins
-                        .iter_mut()
-                        .find(|p| match p.plugin.source_provider_params() {
-                            Some(params) => params.human_name == *pname,
-                            None => false,
-                        })
-                        .context("Tried to save with a plugin that is not a source provider")?;
-                    if let Some(params) = p.plugin.source_provider_params() {
-                        if !params.can_save {
-                            bail!("Plugin does not support save");
-                        }
-                    } else {
-                        bail!("Plugin is not a source provider");
-                    };
+                SourceProvider::Plugin(_p) => {
+                    // let p = self
+                    //     .plugins
+                    //     .iter_mut()
+                    //     .find(|p| match p.plugin.source_provider_params() {
+                    //         Some(params) => params.human_name == *pname,
+                    //         None => false,
+                    //     })
+                    //     .context("Tried to save with a plugin that is not a source provider")?;
+                    // if let Some(params) = p.plugin.source_provider_params() {
+                    //     if !params.is_writable {
+                    //         bail!("Plugin does not support save");
+                    //     }
+                    // } else {
+                    //     bail!("Plugin is not a source provider");
+                    // };
                     todo!("save not yet implemented")
                 }
             },
@@ -936,8 +938,12 @@ impl App {
         let mut plugins = std::mem::take(&mut self.plugins);
         let result = 'block: {
             for plugin in &mut plugins {
-                if plugin_name == plugin.plugin.name() {
-                    break 'block plugin.plugin.on_method_called(method_name, args, self);
+                if plugin_name == plugin.name {
+                    break 'block plugin.plugin.write().unwrap().on_method_called(
+                        method_name,
+                        args,
+                        self,
+                    );
                 }
             }
             Err(format!("Plugin `{plugin_name}` not found."))

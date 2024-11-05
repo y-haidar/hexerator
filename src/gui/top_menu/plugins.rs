@@ -14,7 +14,7 @@ pub fn ui(ui: &mut egui::Ui, gui: &mut Gui, app: &mut App) {
     plugins.retain_mut(|plugin| {
         let mut retain = true;
         ui.horizontal(|ui| {
-            ui.label(plugin.plugin.name()).on_hover_text(plugin.plugin.desc());
+            ui.label(plugin.name).on_hover_text(plugin.desc);
             if ui.button("🗑").on_hover_text("Unload").clicked() {
                 retain = false;
                 ui.close_menu();
@@ -51,7 +51,8 @@ pub fn ui(ui: &mut egui::Ui, gui: &mut Gui, app: &mut App) {
             };
             if ui.button(name).on_hover_ui(hover_ui).clicked() {
                 ui.close_menu();
-                match plugin.plugin.on_method_called(method.method_name, &[], app) {
+                match plugin.plugin.write().unwrap().on_method_called(method.method_name, &[], app)
+                {
                     Ok(val) => {
                         if let Some(val) = val {
                             let strval = match val {

@@ -5,14 +5,16 @@ use hexerator_plugin_api::{
     Value, ValueTy,
 };
 
-struct HelloPlugin;
+struct HelloPlugin {
+    i: u8,
+}
 
 impl Plugin for HelloPlugin {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Hello world plugin"
     }
 
-    fn desc(&self) -> &str {
+    fn desc(&self) -> &'static str {
         "Hi! I'm an example plugin for Hexerator"
     }
 
@@ -88,24 +90,36 @@ impl Plugin for HelloPlugin {
     fn source_provider_params(&self) -> Option<PluginSourceProviderParams> {
         Some(PluginSourceProviderParams {
             human_name: "hello_world",
-            can_save: false,
-            can_write: false,
+            is_stream: true,
+            is_writable: false,
+            is_savable: false,
             auto_reload_type: hexerator_plugin_api::AutoReloadType::OneShot,
         })
     }
-    fn read(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
-        println!("read");
-        let len = 200u8;
-        buf.clear();
-        (0..len).for_each(|i| buf.push(i));
-        Ok(len as usize)
+    fn sp_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        // println!("read");
+        // let len = 200u8;
+        // buf.clear();
+        // (0..len).for_each(|i| buf.push(i));
+        // Ok(len as usize)
+        todo!()
     }
-    // fn write(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-    //     unimplemented!("This plugin does not impl a source provider")
-    // }
+    fn sp_read_range(&mut self, lo: usize, hi: usize, buf: &mut [u8]) -> std::io::Result<()> {
+        todo!()
+    }
+    fn sp_read_stream(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        buf[0] = self.i;
+        if self.i == 100 {
+            // Finished stream
+            return Ok(0);
+            // return Err(std::io::Error::new(std::io::ErrorKind::Other, "EOF"));
+        }
+        self.i += 1;
+        Ok(1)
+    }
 }
 
 #[no_mangle]
 pub extern "Rust" fn hexerator_plugin_new() -> Box<dyn Plugin> {
-    Box::new(HelloPlugin)
+    Box::new(HelloPlugin { i: 0 })
 }

@@ -1,13 +1,21 @@
 use {
     crate::app::App,
-    hexerator_plugin_api::{HexeratorHandle, Plugin, PluginMethod},
-    std::{self, path::PathBuf},
+    hexerator_plugin_api::{HexeratorHandle, Plugin, PluginMethod, PluginSourceProviderParams},
+    std::{
+        self,
+        path::PathBuf,
+        sync::{Arc, RwLock},
+    },
 };
 
 pub struct PluginContainer {
     pub path: PathBuf,
-    pub plugin: Box<dyn Plugin>,
+    // pub plugin: Box<dyn Plugin>,
+    pub plugin: Arc<RwLock<Box<dyn Plugin>>>,
+    pub name: &'static str,
+    pub desc: &'static str,
     pub methods: Vec<PluginMethod>,
+    pub sp_params: Option<PluginSourceProviderParams>,
     // Safety: Must be last, fields are dropped in decl order.
     pub _lib: libloading::Library,
 }
@@ -47,10 +55,18 @@ impl PluginContainer {
             let lib = libloading::Library::new(&path)?;
             let plugin_init = lib.get::<fn() -> Box<dyn Plugin>>(b"hexerator_plugin_new")?;
             let plugin = plugin_init();
+            let name = plugin.name();
+            let desc = plugin.desc();
+            let methods = plugin.methods();
+            let sp_params = plugin.source_provider_params();
+            let plugin = Arc::new(RwLock::new(plugin_init()));
             Ok(Self {
                 path,
-                methods: plugin.methods(),
                 plugin,
+                name,
+                desc,
+                sp_params,
+                methods,
                 _lib: lib,
             })
         }

@@ -23,9 +23,23 @@ pub fn ui(ui: &mut egui::Ui, gui: &mut Gui, app: &mut App, font_size: u16, line_
 
     ui.menu_button("Open with plugin", |ui| {
         app.plugins.iter_mut().for_each(|p| {
-            if let Some(params) = p.plugin.source_provider_params() {
+            if let Some(params) = &p.sp_params {
                 if ui.button(params.human_name).clicked() {
-                    _ = p.plugin.read(&mut app.data);
+                    if params.is_stream {
+                        app.source = Some(crate::source::Source {
+                            provider: crate::source::SourceProvider::Plugin(p.plugin.clone()),
+                            attr: crate::source::SourceAttributes {
+                                stream: params.is_stream,
+                                permissions: crate::source::SourcePermissions {
+                                    write: params.is_writable,
+                                },
+                            },
+                            state: crate::source::SourceState::default(),
+                        });
+                    } else {
+                        todo!();
+                        // _ = p.plugin.sp_read(&mut app.data);
+                    }
                     //
                     ui.close_menu();
                 }

@@ -1,6 +1,6 @@
 pub trait Plugin {
-    fn name(&self) -> &str;
-    fn desc(&self) -> &str;
+    fn name(&self) -> &'static str;
+    fn desc(&self) -> &'static str;
     fn methods(&self) -> Vec<PluginMethod>;
     fn on_method_called(
         &mut self,
@@ -11,9 +11,11 @@ pub trait Plugin {
     // if `Some` then a sub menu `Open with...` with a sub item `PLUGIN_HUMAN_NAME` is added to `File` menu.
     fn source_provider_params(&self) -> Option<PluginSourceProviderParams>;
     // Look at `PluginSourceProvider` docs/source-code
-    fn read(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize>;
-    // fn write(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
-    // fn save(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
+    // fn sp_write(&mut self, lo: usize, buf: &mut [u8]) -> std::io::Result<()>;
+    // fn sp_save(&mut self) -> std::io::Result<()>;
+    fn sp_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
+    fn sp_read_range(&mut self, lo: usize, hi: usize, buf: &mut [u8]) -> std::io::Result<()>;
+    fn sp_read_stream(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
 }
 
 pub type MethodResult = Result<Option<Value>, String>;
@@ -52,8 +54,9 @@ impl ValueTy {
 
 pub struct PluginSourceProviderParams {
     pub human_name: &'static str,
-    pub can_save: bool,
-    pub can_write: bool,
+    pub is_stream: bool,
+    pub is_writable: bool,
+    pub is_savable: bool,
     pub auto_reload_type: AutoReloadType,
 }
 

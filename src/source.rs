@@ -1,9 +1,13 @@
-use std::{
-    fs::File,
-    io::{Read, Stdin},
+use {
+    hexerator_plugin_api::Plugin,
+    std::{
+        fs::File,
+        io::{Read, Stdin},
+        sync::{Arc, RwLock},
+    },
 };
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub enum SourceProvider {
     File(File),
     Stdin(Stdin),
@@ -13,8 +17,31 @@ pub enum SourceProvider {
         start: usize,
         size: usize,
     },
-    Plugin(&'static str),
-    // Plugin(Arc<RwLock<PluginContainer>>),
+    Plugin(Arc<RwLock<Box<dyn Plugin>>>),
+}
+
+impl std::fmt::Debug for SourceProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::File(arg0) => f.debug_tuple("File").field(arg0).finish(),
+            Self::Stdin(arg0) => f.debug_tuple("Stdin").field(arg0).finish(),
+            #[cfg(windows)]
+            Self::WinProc {
+                handle,
+                start,
+                size,
+            } => f
+                .debug_struct("WinProc")
+                .field("handle", handle)
+                .field("start", start)
+                .field("size", size)
+                .finish(),
+            Self::Plugin(_arg0) => {
+                f.debug_struct("Plugin").finish()
+                // .field("name", &arg0.read().unwrap().name())
+            }
+        }
+    }
 }
 
 /// FIXME: Prove this is actually safe
@@ -78,7 +105,7 @@ impl Clone for SourceProvider {
                 start: *start,
                 size: *size,
             },
-            Self::Plugin(pname) => Self::Plugin(*pname),
+            Self::Plugin(p) => Self::Plugin(p.clone()),
         }
     }
 }
@@ -93,9 +120,7 @@ impl Read for SourceProvider {
                 gamedebug_core::per!("Todo: Read unimplemented");
                 Ok(0)
             }
-            SourceProvider::Plugin(_) => {
-                unreachable!("Not like this");
-            }
+            SourceProvider::Plugin(p) => p.write().unwrap().sp_read_stream(buf),
         }
     }
 }
