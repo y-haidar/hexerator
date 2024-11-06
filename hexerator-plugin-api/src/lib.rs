@@ -13,8 +13,8 @@ pub trait Plugin {
     // Look at `PluginSourceProvider` docs/source-code
     // fn sp_write(&mut self, lo: usize, buf: &mut [u8]) -> std::io::Result<()>;
     // fn sp_save(&mut self) -> std::io::Result<()>;
-    fn sp_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
-    fn sp_read_range(&mut self, lo: usize, hi: usize, buf: &mut [u8]) -> std::io::Result<()>;
+    fn sp_read_contents(&mut self) -> std::io::Result<Vec<u8>>;
+    fn sp_read_exact(&mut self, lo: usize, buf: &mut [u8]) -> std::io::Result<()>;
     fn sp_read_stream(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
 }
 

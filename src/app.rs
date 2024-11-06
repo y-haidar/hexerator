@@ -164,37 +164,33 @@ impl App {
     }
     pub fn reload(&mut self) -> anyhow::Result<()> {
         match &mut self.source {
-            Some(src) => {
-                match &mut src.provider {
-                    SourceProvider::File(file) => {
-                        self.data = read_contents(&self.src_args, file)?;
-                        self.edit_state.dirty_region = None;
-                    }
-                    SourceProvider::Stdin(_) => {
-                        bail!("Can't reload streaming sources like standard input")
-                    }
-                    #[cfg(windows)]
-                    SourceProvider::WinProc {
-                        handle,
-                        start,
-                        size,
-                    } => unsafe {
-                        crate::windows::read_proc_memory(*handle, &mut self.data, *start, *size)?;
-                    },
-                    SourceProvider::Plugin(p) => {
-                        let pname = p.read().unwrap().source_provider_params().unwrap().human_name;
-                        let pc = self
-                        .plugins
-                        .iter()
-                        .find(|p| matches!(&p.sp_params, Some(params) if params.human_name == pname))
-                        .context("Tried to reload with a plugin that is not a source provider")?;
-                        if matches!(&pc.sp_params, Some(params) if params.is_stream) {
+            Some(src) => match &mut src.provider {
+                SourceProvider::File(file) => {
+                    self.data = read_contents(&self.src_args, file)?;
+                    self.edit_state.dirty_region = None;
+                }
+                SourceProvider::Stdin(_) => {
+                    bail!("Can't reload streaming sources like standard input")
+                }
+                #[cfg(windows)]
+                SourceProvider::WinProc {
+                    handle,
+                    start,
+                    size,
+                } => unsafe {
+                    crate::windows::read_proc_memory(*handle, &mut self.data, *start, *size)?;
+                },
+                SourceProvider::Plugin(p) => {
+                    {
+                        let pc = p.read().unwrap().source_provider_params();
+                        if matches!(&pc, Some(params) if params.is_stream) {
                             bail!("Cannot reload stream")
                         }
-                        _ = p.write().unwrap().sp_read(&mut self.data);
                     }
+                    self.data = p.write().unwrap().sp_read_contents()?;
+                    self.edit_state.dirty_region = None;
                 }
-            }
+            },
             None => bail!("No file to reload"),
         }
         self.just_reloaded = true;
@@ -722,7 +718,19 @@ impl App {
             SourceProvider::Stdin(_) => anyhow::bail!("Not implemented"),
             #[cfg(windows)]
             SourceProvider::WinProc { .. } => anyhow::bail!("Not implemented"),
-            SourceProvider::Plugin(_) => anyhow::bail!("Not implemented"),
+            SourceProvider::Plugin(p) => {
+                {
+                    let pc = p.read().unwrap().source_provider_params();
+                    if matches!(&pc, Some(params) if params.is_stream) {
+                        bail!("Cannot reload stream")
+                    }
+                }
+                match self.data.get_mut(lo..=hi) {
+                    Some(buf) => p.write().unwrap().sp_read_exact(lo, buf)?,
+                    None => anyhow::bail!("Reload range out of bounds"),
+                }
+                Ok(())
+            }
         }
     }
     /// Iterator over the views in the current layout

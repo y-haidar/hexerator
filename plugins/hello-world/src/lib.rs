@@ -6,7 +6,7 @@ use hexerator_plugin_api::{
 };
 
 struct HelloPlugin {
-    i: u8,
+    i: usize,
 }
 
 impl Plugin for HelloPlugin {
@@ -90,29 +90,31 @@ impl Plugin for HelloPlugin {
     fn source_provider_params(&self) -> Option<PluginSourceProviderParams> {
         Some(PluginSourceProviderParams {
             human_name: "hello_world",
-            is_stream: true,
+            // is_stream: true,
+            is_stream: false,
             is_writable: false,
             is_savable: false,
             auto_reload_type: hexerator_plugin_api::AutoReloadType::OneShot,
         })
     }
-    fn sp_read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        // println!("read");
-        // let len = 200u8;
-        // buf.clear();
-        // (0..len).for_each(|i| buf.push(i));
-        // Ok(len as usize)
-        todo!()
+    fn sp_read_contents(&mut self) -> std::io::Result<Vec<u8>> {
+        let len = 100_000u32;
+        let o = (0..len).map(|v| ((v + self.i as u32) % 100) as u8).collect();
+        self.i += 1;
+        Ok(o)
     }
-    fn sp_read_range(&mut self, lo: usize, hi: usize, buf: &mut [u8]) -> std::io::Result<()> {
-        todo!()
+    fn sp_read_exact(&mut self, lo: usize, buf: &mut [u8]) -> std::io::Result<()> {
+        (lo..buf.len()).enumerate().for_each(|(i, v)| {
+            buf[lo + i] = ((v + i + self.i) % 100) as u8;
+        });
+        self.i += 1;
+        Ok(())
     }
     fn sp_read_stream(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        buf[0] = self.i;
+        buf[0] = self.i as u8;
         if self.i == 100 {
             // Finished stream
             return Ok(0);
-            // return Err(std::io::Error::new(std::io::ErrorKind::Other, "EOF"));
         }
         self.i += 1;
         Ok(1)

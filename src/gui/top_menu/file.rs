@@ -25,22 +25,39 @@ pub fn ui(ui: &mut egui::Ui, gui: &mut Gui, app: &mut App, font_size: u16, line_
         app.plugins.iter_mut().for_each(|p| {
             if let Some(params) = &p.sp_params {
                 if ui.button(params.human_name).clicked() {
-                    if params.is_stream {
-                        app.source = Some(crate::source::Source {
-                            provider: crate::source::SourceProvider::Plugin(p.plugin.clone()),
-                            attr: crate::source::SourceAttributes {
-                                stream: params.is_stream,
-                                permissions: crate::source::SourcePermissions {
-                                    write: params.is_writable,
-                                },
+                    app.source = Some(crate::source::Source {
+                        provider: crate::source::SourceProvider::Plugin(p.plugin.clone()),
+                        attr: crate::source::SourceAttributes {
+                            stream: params.is_stream,
+                            permissions: crate::source::SourcePermissions {
+                                write: params.is_writable,
                             },
-                            state: crate::source::SourceState::default(),
+                        },
+                        state: crate::source::SourceState::default(),
+                    });
+                    if !params.is_stream {
+                        _ = p.plugin.write().unwrap().sp_read_contents().and_then(|v| {
+                            app.data = v;
+                            app.orig_data_len = app.data.len();
+                            app.edit_state.dirty_region = None;
+                            app.just_reloaded = true;
+                            // app.set_new_clean_meta(font_size, line_spacing);
+                            gamedebug_core::per!("Setting up new clean meta");
+                            app.meta_state.current_meta_path.clear();
+                            app.meta_state.meta = crate::meta::Meta::default();
+                            let layout_key = crate::app::setup_empty_meta(
+                                app.data.len(),
+                                &mut app.meta_state.meta,
+                                font_size,
+                                line_spacing,
+                            );
+                            app.meta_state.clean_meta = app.meta_state.meta.clone();
+                            App::switch_layout(&mut app.hex_ui, &app.meta_state.meta, layout_key);
+
+                            app.cmd.push(crate::app::command::Cmd::ProcessSourceChange);
+                            Ok(())
                         });
-                    } else {
-                        todo!();
-                        // _ = p.plugin.sp_read(&mut app.data);
                     }
-                    //
                     ui.close_menu();
                 }
             }
